@@ -31,6 +31,8 @@ import lu.andreasbraun.gpstoolbox.core.GnssState
 import lu.andreasbraun.gpstoolbox.core.Nmea
 import lu.andreasbraun.gpstoolbox.core.SatSignal
 import lu.andreasbraun.gpstoolbox.core.Satellite
+import lu.andreasbraun.gpstoolbox.data.Agnss
+import lu.andreasbraun.gpstoolbox.telemetry.Telemetry
 
 /**
  * Single owner of all GNSS listeners. Screens and the live service "acquire" it with a tag;
@@ -66,6 +68,7 @@ object GnssEngine {
     private var nmeaMsl: Double? = null
     private var nmeaMslAt = 0L
     private var lastFixElapsed = 0L
+    private var startedElapsed = 0L
     private var rateEma: Double? = null
 
     private const val HISTORY_MS = 10 * 60 * 1000L
@@ -130,11 +133,15 @@ object GnssEngine {
             lm.registerGnssStatusCallback(executor, statusCallback)
             lm.addNmeaListener(executor, nmeaListener)
             registered = true
+            startedElapsed = SystemClock.elapsedRealtime()
+            Telemetry.event("gnss_start", "users" to users.joinToString(","))
         } catch (e: SecurityException) {
             registered = false
+            Telemetry.event("gnss_error", "where" to "register", "error" to e.javaClass.simpleName)
         } catch (e: IllegalArgumentException) {
             // Device without a GPS provider.
             registered = false
+            Telemetry.event("gnss_error", "where" to "register", "error" to e.javaClass.simpleName)
         }
     }
 
@@ -142,6 +149,7 @@ object GnssEngine {
         runCatching { lm.removeUpdates(locationListener) }
         runCatching { lm.unregisterGnssStatusCallback(statusCallback) }
         runCatching { lm.removeNmeaListener(nmeaListener) }
+        if (registered) Telemetry.event("gnss_stop", "on_s" to (SystemClock.elapsedRealtime() - startedElapsed) / 1000)
         registered = false
     }
 
@@ -158,6 +166,7 @@ object GnssEngine {
                     lm.registerGnssMeasurementsCallback(executor, measurementCallback)
                 }
             }.getOrDefault(false)
+            Telemetry.event("raw_registration", "ok" to measurementsRegistered)
         } else if (!want && measurementsRegistered) {
             runCatching { lm.unregisterGnssMeasurementsCallback(measurementCallback) }
             measurementsRegistered = false
@@ -167,9 +176,11 @@ object GnssEngine {
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) = onLocation(location)
         override fun onProviderEnabled(provider: String) {
+            Telemetry.event("provider", "enabled" to true)
             _state.update { it.copy(providerEnabled = true) }
         }
         override fun onProviderDisabled(provider: String) {
+            Telemetry.event("provider", "enabled" to false)
             _state.update { it.copy(providerEnabled = false, fix = null) }
         }
     }
@@ -247,6 +258,16 @@ object GnssEngine {
         }
 
         override fun onFirstFix(ttffMillis: Int) {
+            // Ties time to first fix to the age of the assistance data: the key check for offline use.
+            val agnss = Agnss.state.value.lastRequest
+            val agnssAgeH = if (agnss > 0) (System.currentTimeMillis() - agnss) / 3_600_000.0 else null
+            Telemetry.event(
+                "first_fix",
+                "ttff_ms" to ttffMillis,
+                "after_cold_start" to _state.value.firstFixPending,
+                "agnss_age_h" to agnssAgeH,
+                "fg" to Telemetry.foreground,
+            )
             _state.update { it.copy(lastTtffMs = ttffMillis, firstFixPending = false) }
         }
 

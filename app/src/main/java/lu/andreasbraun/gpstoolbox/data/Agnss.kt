@@ -16,6 +16,7 @@ import androidx.work.WorkerParameters
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import lu.andreasbraun.gpstoolbox.telemetry.Telemetry
 import java.util.concurrent.TimeUnit
 
 data class AgnssState(
@@ -55,14 +56,26 @@ object Agnss {
 
     /** Asks the system to inject fresh time and predicted orbits. Returns true if the request was accepted. */
     fun refreshNow(context: Context, background: Boolean = false): Boolean {
-        if (!permitted(context)) return false
+        if (!permitted(context)) {
+            Telemetry.event("agnss_refresh", "bg" to background, "skipped" to "no_permission")
+            return false
+        }
         val lm = context.getSystemService(LocationManager::class.java)
         fun send(cmd: String) = runCatching { lm.sendExtraCommand(LocationManager.GPS_PROVIDER, cmd, null) }.getOrDefault(false)
         val time = send("force_time_injection")
-        var orbits = send("force_psds_injection")
-        if (!orbits) orbits = send("force_xtra_injection") // name used before Android 11 and by some vendors
-        val accepted = time || orbits
+        val psds = send("force_psds_injection")
+        val xtra = if (psds) false else send("force_xtra_injection") // name used before Android 11 and by some vendors
+        val accepted = time || psds || xtra
         val now = System.currentTimeMillis()
+        val previous = _state.value.lastRequest
+        Telemetry.event(
+            "agnss_refresh",
+            "bg" to background,
+            "time" to time,
+            "psds" to psds,
+            "xtra" to xtra,
+            "since_h" to (if (previous > 0) (now - previous) / 3_600_000.0 else null),
+        )
         _state.value = _state.value.copy(lastRequest = now, lastAccepted = accepted, lastWasBackground = background)
         sp.edit().putLong("lastRequest", now).putBoolean("lastAccepted", accepted).putBoolean("lastWasBackground", background).apply()
         return accepted
@@ -73,6 +86,7 @@ object Agnss {
         if (!permitted(context)) return false
         val lm = context.getSystemService(LocationManager::class.java)
         val ok = runCatching { lm.sendExtraCommand(LocationManager.GPS_PROVIDER, "delete_aiding_data", null) }.getOrDefault(false)
+        Telemetry.event("cold_start", "accepted" to ok)
         val now = System.currentTimeMillis()
         _state.value = _state.value.copy(lastColdStart = now)
         sp.edit().putLong("lastColdStart", now).apply()

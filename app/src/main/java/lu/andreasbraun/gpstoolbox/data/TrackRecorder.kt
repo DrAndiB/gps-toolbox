@@ -15,6 +15,7 @@ import lu.andreasbraun.gpstoolbox.core.Geo
 import lu.andreasbraun.gpstoolbox.core.Gpx
 import lu.andreasbraun.gpstoolbox.core.TrackPoint
 import lu.andreasbraun.gpstoolbox.engine.GnssEngine
+import lu.andreasbraun.gpstoolbox.telemetry.Telemetry
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -52,6 +53,7 @@ object TrackRecorder {
         _state.value = TrackState(recording = true, startedElapsedMs = SystemClock.elapsedRealtime())
         Background.require(context, Background.Reason.TRACK)
         job = AppScope.launch { GnssEngine.fixes.collect { onFix(it) } }
+        Telemetry.event("track_start")
     }
 
     private fun onFix(fix: Fix) {
@@ -82,6 +84,13 @@ object TrackRecorder {
         job = null
         Background.drop(Background.Reason.TRACK)
         val snapshot = points.toList()
+        val finished = _state.value
+        Telemetry.event(
+            "track_stop",
+            "points" to snapshot.size,
+            "dist_m" to finished.distanceM,
+            "dur_s" to (SystemClock.elapsedRealtime() - finished.startedElapsedMs) / 1000,
+        )
         _state.value = TrackState()
         if (snapshot.isEmpty()) return null
         val name = "Track " + SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT).format(Date(startedWall))

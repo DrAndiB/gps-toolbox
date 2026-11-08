@@ -2,6 +2,7 @@ package lu.andreasbraun.gpstoolbox.ui.tools
 
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -26,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +55,7 @@ import lu.andreasbraun.gpstoolbox.data.Prefs
 import lu.andreasbraun.gpstoolbox.data.WaypointStore
 import lu.andreasbraun.gpstoolbox.engine.GnssEngine
 import lu.andreasbraun.gpstoolbox.engine.SensorEngine
+import lu.andreasbraun.gpstoolbox.telemetry.Telemetry
 import lu.andreasbraun.gpstoolbox.ui.ActionButton
 import lu.andreasbraun.gpstoolbox.ui.ConfirmDialog
 import lu.andreasbraun.gpstoolbox.ui.Fmt
@@ -176,6 +179,14 @@ private fun WaypointDetail(w: Waypoint, onBack: () -> Unit) {
     val course = fix?.bearing?.takeIf { (fix?.speed ?: 0f) > 1f }
     val heading = course ?: trueHeading(sensors.headingMagnetic, fix)
     val relative = bearing?.let { b -> heading?.let { Geo.normalize(b - it) } ?: b }
+
+    // How long the radar is used, and at roughly what range (order of magnitude only).
+    DisposableEffect(w.id) {
+        val opened = SystemClock.elapsedRealtime()
+        val range = distance?.let { d -> if (d < 10) "<10m" else "~1e" + kotlin.math.floor(kotlin.math.log10(d)).toInt() + "m" }
+        Telemetry.event("waypoint_open", "range" to range)
+        onDispose { Telemetry.event("waypoint_close", "open_s" to (SystemClock.elapsedRealtime() - opened) / 1000) }
+    }
 
     Column(
         Modifier

@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import lu.andreasbraun.gpstoolbox.engine.GnssEngine
 import lu.andreasbraun.gpstoolbox.service.LiveService
+import lu.andreasbraun.gpstoolbox.telemetry.Telemetry
 
 /**
  * Reasons to keep GNSS running while the app is in the background. While the set is non-empty,
@@ -25,6 +26,8 @@ object Background {
         _reasons.value = _reasons.value + reason
         runCatching {
             ContextCompat.startForegroundService(context, Intent(context, LiveService::class.java))
+        }.onFailure {
+            Telemetry.event("service_error", "where" to "start", "reason" to reason.name, "error" to it.javaClass.simpleName)
         }
     }
 

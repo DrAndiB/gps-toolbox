@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: keep the telemetry token and unsent telemetry out of cloud backups and device transfers. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="telemetry_secret.xml" />
+        <exclude domain="file" path="telemetry" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="telemetry_secret.xml" />
+        <exclude domain="file" path="telemetry" />
+    </device-transfer>
+</data-extraction-rules>

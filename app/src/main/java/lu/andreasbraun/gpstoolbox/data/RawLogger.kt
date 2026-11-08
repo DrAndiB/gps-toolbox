@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import lu.andreasbraun.gpstoolbox.AppScope
 import lu.andreasbraun.gpstoolbox.engine.GnssEngine
+import lu.andreasbraun.gpstoolbox.telemetry.Telemetry
 import java.io.BufferedWriter
 import java.io.File
 import java.text.SimpleDateFormat
@@ -78,9 +79,11 @@ object RawLogger {
             }
         }
         refreshFiles()
+        Telemetry.event("log_start", "kind" to "nmea")
     }
 
     suspend fun stopNmea() {
+        if (_state.value.nmeaActive) Telemetry.event("log_stop", "kind" to "nmea", "lines" to _state.value.nmeaLines)
         nmeaJob?.cancel()
         nmeaJob = null
         withContext(io) { runCatching { nmeaWriter?.close() } }
@@ -108,9 +111,13 @@ object RawLogger {
             }
         }
         refreshFiles()
+        Telemetry.event("log_start", "kind" to "raw")
     }
 
     suspend fun stopRaw() {
+        val s = _state.value
+        // "supported" tells whether this phone delivers raw measurements at all.
+        if (s.rawActive) Telemetry.event("log_stop", "kind" to "raw", "records" to s.rawRecords, "supported" to s.rawEventsSeen)
         rawJob?.cancel()
         rawJob = null
         GnssEngine.releaseMeasurements()

@@ -26,6 +26,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -43,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lu.andreasbraun.gpstoolbox.data.Agnss
 import lu.andreasbraun.gpstoolbox.data.Prefs
 import lu.andreasbraun.gpstoolbox.engine.GnssEngine
+import lu.andreasbraun.gpstoolbox.telemetry.Telemetry
 import lu.andreasbraun.gpstoolbox.ui.theme.C
 import lu.andreasbraun.gpstoolbox.ui.tools.CompassScreen
 import lu.andreasbraun.gpstoolbox.ui.tools.LevelScreen
@@ -73,6 +75,9 @@ fun AppRoot() {
         view.keepScreenOn = settings.keepScreenOn
         onDispose { view.keepScreenOn = false }
     }
+
+    val screenName = if (!gnss.permission) "permission" else (tool?.name ?: tab.name).lowercase()
+    LaunchedEffect(screenName) { Telemetry.screen(screenName) }
 
     BackHandler(enabled = tool == null && tab != Tab.NOW) { tab = Tab.NOW }
     BackHandler(enabled = tool != null) { tool = null }
@@ -139,7 +144,13 @@ private fun ToolHost(tool: Tool, onBack: () -> Unit) {
 private fun PermissionScreen() {
     val context = LocalContext.current
     var asked by rememberSaveable { mutableStateOf(false) }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        Telemetry.event(
+            "permission",
+            "fine" to result[Manifest.permission.ACCESS_FINE_LOCATION],
+            "coarse" to result[Manifest.permission.ACCESS_COARSE_LOCATION],
+            "notifications" to result[Manifest.permission.POST_NOTIFICATIONS],
+        )
         asked = true
         GnssEngine.refresh()
         Agnss.schedule(context)
@@ -162,7 +173,7 @@ private fun PermissionScreen() {
         Text("Precise location needed", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = C.Text, textAlign = TextAlign.Center)
         Text(
             "GPS Toolbox reads position and satellite data from your phone's GNSS receiver. " +
-                "The app has no internet access, so nothing leaves your phone.",
+                "Your location never leaves the phone unless you share it.",
             fontSize = 15.sp, color = C.TextSoft, textAlign = TextAlign.Center,
         )
         if (asked) {

@@ -28,6 +28,7 @@ import lu.andreasbraun.gpstoolbox.data.RawLogger
 import lu.andreasbraun.gpstoolbox.data.TrackRecorder
 import lu.andreasbraun.gpstoolbox.data.WaypointStore
 import lu.andreasbraun.gpstoolbox.engine.GnssEngine
+import lu.andreasbraun.gpstoolbox.telemetry.Telemetry
 import lu.andreasbraun.gpstoolbox.util.Share
 import java.util.Locale
 
@@ -49,6 +50,7 @@ class LiveService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // Always enter the foreground first: Android requires it shortly after startForegroundService.
         enterForeground()
+        intent?.action?.let { Telemetry.event("notif_action", "action" to it) }
         when (intent?.action) {
             ACTION_COPY -> GnssEngine.state.value.fix?.let {
                 Share.copy(this, "Position", Coordinates.singleLine(it.lat, it.lon, Prefs.current.coordFormat))
@@ -87,6 +89,7 @@ class LiveService : Service() {
             ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
         }.onFailure {
             // Location permission missing or started from the background: give up quietly.
+            Telemetry.event("service_error", "where" to "foreground", "error" to it.javaClass.simpleName)
             stopSelf()
         }
     }

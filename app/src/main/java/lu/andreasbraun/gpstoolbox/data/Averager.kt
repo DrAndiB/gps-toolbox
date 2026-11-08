@@ -11,6 +11,7 @@ import lu.andreasbraun.gpstoolbox.AppScope
 import lu.andreasbraun.gpstoolbox.core.Fix
 import lu.andreasbraun.gpstoolbox.core.Geo
 import lu.andreasbraun.gpstoolbox.engine.GnssEngine
+import lu.andreasbraun.gpstoolbox.telemetry.Telemetry
 import java.util.Locale
 import kotlin.math.sqrt
 
@@ -59,9 +60,23 @@ object Averager {
         _state.value = AveragerState(running = true, startedElapsedMs = SystemClock.elapsedRealtime())
         Background.require(context, Background.Reason.AVERAGE)
         job = AppScope.launch { GnssEngine.fixes.collect { onFix(it) } }
+        Telemetry.event("avg_start")
     }
 
     fun stop() {
+        val s = _state.value
+        if (s.running) {
+            val r = s.result
+            Telemetry.event(
+                "avg_stop",
+                "n" to (r?.count ?: 0),
+                "dur_s" to (SystemClock.elapsedRealtime() - s.startedElapsedMs) / 1000,
+                "cep50" to r?.cep50,
+                "r95" to r?.r95,
+                "drift" to r?.drift,
+                "rejected" to s.rejected,
+            )
+        }
         job?.cancel()
         job = null
         Background.drop(Background.Reason.AVERAGE)

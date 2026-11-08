@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import lu.andreasbraun.gpstoolbox.AppScope
 import lu.andreasbraun.gpstoolbox.core.Fix
 import lu.andreasbraun.gpstoolbox.core.Waypoint
+import lu.andreasbraun.gpstoolbox.telemetry.Telemetry
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -39,6 +40,7 @@ object WaypointStore {
         )
         _items.value = _items.value + wp
         persist()
+        Telemetry.event("waypoint_add", "acc" to accuracy, "total" to _items.value.size)
         return wp
     }
 
@@ -48,11 +50,13 @@ object WaypointStore {
     fun rename(id: String, name: String) {
         _items.value = _items.value.map { if (it.id == id) it.copy(name = name) else it }
         persist()
+        Telemetry.event("waypoint_rename")
     }
 
     fun delete(id: String) {
         _items.value = _items.value.filterNot { it.id == id }
         persist()
+        Telemetry.event("waypoint_delete", "total" to _items.value.size)
     }
 
     private fun persist() {

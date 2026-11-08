@@ -59,6 +59,40 @@ flowchart TD
     AV & TR & RL -->|keep GNSS alive in background| LS
 ```
 
+## Usage data (opt-in telemetry)
+
+Instead of writing feedback, the app can record how it is used and upload that to a **private**
+GitHub repository you own. The upload token stays on the phone (excluded from backups); it is
+never in this repo or the APK.
+
+**Recorded:** screens and time spent, tools used, settings changes, a GNSS quality snapshot once a
+minute while GNSS runs (accuracy, satellites per system, bands, C/N₀, DOP), A-GNSS refreshes,
+time to first fix with the age of the assistance data, errors and crashes, device and chipset model.
+**Never recorded:** coordinates, waypoint names, file contents.
+
+```mermaid
+flowchart LR
+    APP[App events] --> Q[Local queue<br/>on the phone]
+    Q -->|1 min after leaving the app<br/>and every 6 h| R[(Private repo<br/>gps-toolbox-telemetry)]
+    R -->|tools/telemetry_report.py| C[Claude reviews usage]
+    C -->|fixes and features| G[This repo] -->|CI| A[New APK] --> APP
+```
+
+### Setup (once)
+
+1. On GitHub, create a **private** repository, e.g. `gps-toolbox-telemetry`, and tick *Add a README file*.
+2. Create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new):
+   *Repository access* → *Only select repositories* → the telemetry repo; *Permissions* →
+   *Contents: Read and write*. Nothing else.
+3. In the app: *Settings* → *Usage data* → turn on, enter `owner/repo` and paste the token → *Save* → *Upload now*.
+
+Files land in `events/<yyyy-mm-dd>/<device>-<timestamp>.jsonl`, one JSON event per line.
+Summarise them with:
+
+```powershell
+python tools\telemetry_report.py ..\gps-toolbox-telemetry --days 14
+```
+
 ## Build locally
 
 Open the project in Android Studio (JDK 17) or run, in PowerShell:

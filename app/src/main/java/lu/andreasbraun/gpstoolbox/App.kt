@@ -13,6 +13,7 @@ import lu.andreasbraun.gpstoolbox.data.WaypointStore
 import lu.andreasbraun.gpstoolbox.engine.GnssEngine
 import lu.andreasbraun.gpstoolbox.engine.SensorEngine
 import lu.andreasbraun.gpstoolbox.service.LiveService
+import lu.andreasbraun.gpstoolbox.telemetry.Telemetry
 
 /** Process-wide scope for work that must outlive a screen (recording, logging, averaging). */
 object AppScope : CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -20,6 +21,8 @@ object AppScope : CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
+        // First, so its crash handler is in place and other components can log from their init.
+        Telemetry.init(this)
         Prefs.init(this)
         GnssEngine.init(this)
         SensorEngine.init(this)
@@ -31,5 +34,7 @@ class App : Application() {
         LiveService.createChannel(this)
         // Keeps the background assistance-data refresh scheduled, even if the app is rarely opened.
         Agnss.schedule(this)
+        Telemetry.schedule(this)
+        Telemetry.startSnapshots()
     }
 }

@@ -64,7 +64,7 @@ fun ToolsScreen(onOpen: (Tool) -> Unit) {
     ) {
         ScreenHeader(
             title = "Tools",
-            subtitle = "Offline · no account · no ads",
+            subtitle = "No account · no ads",
             actions = { IconBtn(Ic.settings, "Settings", onClick = { onOpen(Tool.SETTINGS) }) },
         )
         Column(

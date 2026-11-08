@@ -29,6 +29,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -282,6 +283,17 @@ fun ToggleRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boo
         )
     }
 }
+
+@Composable
+fun fieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = C.Accent,
+    unfocusedBorderColor = C.Line,
+    focusedLabelColor = C.Accent,
+    unfocusedLabelColor = C.Muted,
+    cursorColor = C.Accent,
+    focusedTextColor = C.Text,
+    unfocusedTextColor = C.Text,
+)
 
 @Composable
 fun NameDialog(title: String, initial: String, confirm: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {

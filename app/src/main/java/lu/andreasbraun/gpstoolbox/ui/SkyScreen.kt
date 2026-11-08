@@ -41,6 +41,7 @@ import lu.andreasbraun.gpstoolbox.core.Constellation
 import lu.andreasbraun.gpstoolbox.core.Satellite
 import lu.andreasbraun.gpstoolbox.engine.GnssEngine
 import lu.andreasbraun.gpstoolbox.engine.SensorEngine
+import lu.andreasbraun.gpstoolbox.telemetry.Telemetry
 import lu.andreasbraun.gpstoolbox.ui.theme.C
 import lu.andreasbraun.gpstoolbox.ui.theme.Mono
 import java.util.Locale
@@ -71,7 +72,12 @@ fun SkyScreen() {
         ScreenHeader(
             title = "Sky & signals",
             subtitle = "${gnss.tracked} in view · ${gnss.used} in fix",
-            actions = { Pill(if (headingUp) "Heading-up" else "North-up", selected = false, onClick = { headingUp = !headingUp }) },
+            actions = {
+                Pill(if (headingUp) "Heading-up" else "North-up", selected = false, onClick = {
+                    headingUp = !headingUp
+                    Telemetry.event("sky_orientation", "heading_up" to headingUp)
+                })
+            },
         )
         Column(
             Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
@@ -82,6 +88,7 @@ fun SkyScreen() {
                     for (c in present) {
                         Pill(c.label, selected = c !in hidden, color = Color(c.argb), onClick = {
                             hidden = if (c in hidden) hidden - c else hidden + c
+                            Telemetry.event("sky_filter", "system" to c.label, "shown" to (c !in hidden))
                         })
                     }
                 }
@@ -112,7 +119,12 @@ fun SkyScreen() {
                 )
                 if (bands.size > 1) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        for (b in bands) Pill(b.label, selected = b == shownBand, onClick = { band = b })
+                        for (b in bands) {
+                            Pill(b.label, selected = b == shownBand, onClick = {
+                                band = b
+                                Telemetry.event("sky_band", "band" to b.name)
+                            })
+                        }
                     }
                 }
                 Cn0Bars(withBand, shownBand, Modifier.fillMaxWidth().height(140.dp))
