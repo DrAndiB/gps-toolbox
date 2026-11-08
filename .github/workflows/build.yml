@@ -52,7 +52,20 @@ jobs:
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon --stacktrace testReleaseUnitTest assembleRelease
+        run: |
+          # Retry only when the failure is a dependency download problem (504s etc.), not a code error.
+          set -o pipefail
+          for i in 1 2 3 4; do
+            if ./gradlew --no-daemon testReleaseUnitTest assembleRelease 2>&1 | tee build.log; then
+              exit 0
+            fi
+            if ! grep -qE "Could not (GET|download|resolve|get resource)|Gateway Time-out|Read timed out|Connection reset" build.log; then
+              exit 1
+            fi
+            echo "::warning::Download failure (attempt $i), retrying in 30 s"
+            sleep 30
+          done
+          exit 1
 
       - name: Name the APK
         run: cp app/build/outputs/apk/release/app-release.apk "gps-toolbox-${{ github.run_number }}.apk"
